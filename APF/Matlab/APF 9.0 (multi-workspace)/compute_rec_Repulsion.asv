@@ -1,0 +1,76 @@
+function [Frer_X,Frer_Y]=compute_rec_Repulsion(cur_position ,goal_position ,obj ,OBJ_NUM ,REP,INF_DISTANCE , A ,theta_Goal )     
+    %计算矩形障碍物的斥力(当前点，目标点，矩形障碍物，矩形障碍物个数，斥力计算参数,障碍影响距离，辅助参数引力角度)
+    %计算单个矩形障碍物的斥力时先分别计算4条线段斥力，线段的斥力计算可由点的斥力计算公式通过积分推得
+    
+    delta_goal_X = goal_position(1) - cur_position(1);
+    delta_goal_Y = goal_position(2) - cur_position(2);
+    rGoal = sqrt ( delta_goal_X ^ 2 + delta_goal_Y ^ 2 ) ;		%路径点与终点的距离
+    for j = 1:OBJ_NUM
+        OBJ = obj( (j*4-3) : j*4 , 1 : 2 );    % obj为所有矩形障碍物所有点的(4*OBJ_NUM)行2列二维矩阵，从头起每四个点表示一个矩形；OBJ为4*2矩阵
+        line_s = OBJ;   %一个矩形中四个起点，左下角为第一个，逆时针为正方向
+        line_e = [(OBJ(2 : 4 , 1 : 2)) ; (OBJ(1 : 1 , 1 : 2))];     %一个矩形中四个终点，又下角为第一个，逆时针为正方向
+        for i = 1:4    %分别计算4条线段斥力
+            [Frer_line_x(i) ,Frery(i)] = compute_line_Repulsion(cur_position , line_s(i,:), line_e(i,:) ,REP,INF_DISTANCE , A ,rGoal ,theta_Goal);
+%             [hLine(i),rLine(i)] = distance_to_line(cur_position ,line_s(i,:), line_e(i,:));       %计算出当前点到障碍物的垂直距离（hLine）和最短距离（rLine）       
+%             if rLine(i) > INF_DISTANCE    %如果每个障碍和路径的距离大于障碍影响距离，斥力为0
+%                   Frerx(i) = 0;
+%                   Frery(i) = 0;
+%             else
+%                 [theta_Line(i) ,theta1 ,theta2] = complete_theta(cur_position ,line_s(i,:), line_e(i,:));     %计算出线段与系统x轴的夹角，和积分的上下限角
+%                 if (theta1 == 0) | (theta1 > 3.1415926) |  (theta1 < -3.1415926)  %当当前点与线段共线时，只考虑与当前点较近处的线段端点所产生的斥力
+%                     distance_c_s = sqrt((cur_position(1) - line_s(i,1)) ^ 2 + (cur_position(2) - line_s(i,2)) ^ 2);     %当前点与线段起点距离
+%                     distance_c_e = sqrt((cur_position(1) - line_e(i,1)) ^ 2 + (cur_position(2) - line_e(i,2)) ^ 2);     %当前点与线段终点距离
+%                     if distance_c_s >= distance_c_e         %计算斥力时距离
+%                         distance = distance_c_e; 
+%                         theta_Obj = theta_Line(i);
+%                     else
+%                         distance = distance_c_s;
+%                         theta_Obj = theta_Line(i) + pi;
+%                     end
+%                     if distance < ( INF_DISTANCE / 2 )           %如果每个障碍线段端点和路径点的距离小于障碍影响距离的1/2
+%                         Frer1_line = REP * ( 1 / distance - 1 / INF_DISTANCE ) * ( 1 / ( distance ^ 2 ) ) * ( rGoal ^ A ) ;
+%                         Frer2_line = A * REP * ( ( 1 / distance - 1 / INF_DISTANCE ) ^ 2 ) * ( rGoal ^ ( 1 - A ) ) / 2 ;
+%                         Frer1_line_x(i) = Frer1_line * cos ( theta_Obj ) ;
+%                         Frer1_line_y(i) = Frer1_line * sin ( theta_Obj ) ;
+%                     else                                         %如果每个障碍线段端点和路径点的距离在障碍影响距离的1/2到1之间
+%                         Frer1_line = REP * ( 1 / distance - 1 / INF_DISTANCE ) * ( 1 / ( distance ^ 2 ) ) * ( rGoal ^ 2 ) ;
+%                         Frer2_line = REP * ( ( 1 / distance - 1 / INF_DISTANCE ) ^ 2 ) * rGoal ;
+%                         Frer1_line_x(i) = Frer1_line * cos ( theta_Obj ) ;
+%                         Frer1_line_y(i) = Frer1_line * sin ( theta_Obj ) ;
+%                     end
+%                 else    %当前点与线段不共线时
+%                     if rLine(i) < ( INF_DISTANCE / 2 )    %如果每个障碍和路径的距离小于障碍影响距离的1/2
+%                         Krer1_1 = ( rGoal ^ A ) * REP / ( hLine(i) ^ 3) ;    %Krer1_1 ... Krer2_3为计算斥力时积分公式化简后的一些系数
+%                         Krer1_2 = ( rGoal ^ A ) * REP / ( INF_DISTANCE * hLine(i)^2 ) ;
+%                         Krer2 = A / 2 * REP * ( rGoal ^ abs(A - 1)) ;
+%                     else         %如果每个障碍和路径的距离在障碍影响距离的1/2到1倍之间
+%                         Krer1_1 = ( rGoal ^ 2 ) * REP / ( hLine(i) ^ 3) ;
+%                         Krer1_2 = ( rGoal ^ 2 ) * REP / ( INF_DISTANCE * hLine(i)^2 ) ;
+%                         Krer2 = REP * rGoal;
+%                     end
+%                     Krer2_1 = Krer2 / (hLine(i)^2);
+%                     Krer2_2 = -2 * Krer2 / ( INF_DISTANCE * hLine(i) ) ;
+%                     Krer2_3 = 1 / ( INF_DISTANCE^2 ) ;
+%                     Frer1_line_temp_X1 = Krer1_1 /4 * (sin(theta1)^4 ) - Krer1_2 / 3 * ( sin(theta1)^3 ) ;      
+%                     Frer1_line_temp_X2 = Krer1_1 /4 * (sin(theta2)^4 ) - Krer1_2 / 3 * ( sin(theta2)^3 ) ;
+%                     Frer1_line_temp_X = Frer1_line_temp_X2 - Frer1_line_temp_X1;                          %以线段正方向（s到e）为x正方向时，单条线段斥力在x方向分量
+%                     Frer1_line_temp_Y1 = Krer1_1 * ( (-1/4) * (sin(theta1))^3 * cos(theta1) - 3/8 * sin(theta1) * cos(theta1) + 3/8 * theta1) + Krer1_2 /3 * ( (sin(theta1))^2 * cos(theta1) + 2 * cos(theta1) );
+%                     Frer1_line_temp_Y2 = Krer1_1 * ( (-1/4) * (sin(theta2))^3 * cos(theta2) - 3/8 * sin(theta2) * cos(theta2) + 3/8 * theta2) + Krer1_2 /3 * ( (sin(theta2))^2 * cos(theta2) + 2 * cos(theta2) );
+%                     Frer1_line_temp_Y = Frer1_line_temp_Y2 - Frer1_line_temp_Y1 ;                         %以线段正方向（s到e）为x正方向时，单条线段斥力在y方向分量
+%                     Frer1_line_x(i) =  Frer1_line_temp_X * cos ( theta_Line(i) ) - Frer1_line_temp_Y * sin ( theta_Line(i) );       %单条线段斥力Frer1_line在系统坐标系中x方向分量
+%                     Frer1_line_y(i) =  Frer1_line_temp_X * sin ( theta_Line(i) ) + Frer1_line_temp_Y * cos ( theta_Line(i) );       %单条线段斥力Frer1_line在系统坐标系中y方向分量
+%                     Frer2_line_1 = - Krer2_1 / 2 * ( sin(theta1) * cos(theta1) - theta1 ) + Krer2_2 * cos(theta1) + Krer2_3 * theta1;
+%                     Frer2_line_2 = - Krer2_1 / 2 * ( sin(theta2) * cos(theta2) - theta2 ) + Krer2_2 * cos(theta2) + Krer2_3 * theta2;
+%                     Frer2_line = Frer2_line_2 - Frer2_line_1;    %单条线段斥力的分量Frer2_line
+%                 end
+%                 Frer2_line_x(i) = Frer2_line * cos(theta_Goal);  %单条线段斥力Frer2_line在系统坐标系中x方向分量
+%                 Frer2_line_y(i) = Frer2_line * sin(theta_Goal);  %单条线段斥力Frer2_line在系统坐标系中y方向分量
+%                 Frerx(i) = Frer1_line_x(i) + Frer2_line_x(i);    %单条线段总斥力在系统坐标系中x方向分量
+%                 Frery(i) = Frer1_line_y(i) + Frer2_line_y(i);    %单条线段总斥力在系统坐标系中y方向分量
+%             end
+        end
+        Frer_obj_x(j) = sum(Frerx) ;    %叠加单个障碍物所有边界斥力在X方向的分量
+        Frer_obj_y(j) = sum(Frery) ;    %叠加单个障碍物所有边界斥力在Y方向的分量
+    end
+    Frer_X = sum(Frer_obj_x) ;    %叠加所有障碍物斥力在X方向的分量
+    Frer_Y = sum(Frer_obj_y) ;    %叠加所有障碍物斥力在Y方向的分量
